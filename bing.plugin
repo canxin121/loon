@@ -4,7 +4,7 @@
 #!author =canxin
 
 [Rule]
-DOMAIN-KEYWORD, bing.PROXY
+DOMAIN-KEYWORD, bing, PROXY
 
 [Script]
 http-request ^ https://raw.githubusercontent.com/canxin121/loon/main/bing.js, requires-body = false, tag = bing
