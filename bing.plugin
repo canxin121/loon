@@ -7,7 +7,7 @@
 DOMAIN-KEYWORD, bing, PROXY
 
 [Script]
-http-request ^ https://raw.githubusercontent.com/canxin121/loon/main/bing.js, requires-body = false, tag = bing
+http-request ^https:\/\/www\.bing\.com\/(search|new) script-path=https://raw.githubusercontent.com/canxin121/loon/main/bing.js, timeout=10, tag=BingAI
 
 [MITM]
 hostname = www.bing.com
