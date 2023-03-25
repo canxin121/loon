@@ -1,7 +1,7 @@
   const headers = $request.headers;
 
   
-  delete headers['x-forward-for']
+  delete headers['X-Forward-For']
   delete headers["user-agent"];
   delete headers["sec-ch-ua-full-version"];
   delete headers["sec-ch-ua-full-version-list"];
@@ -11,5 +11,5 @@
   headers['sec-ch-ua'] = '"Chromium";v="110", "Not A(Brand";v="24", "Microsoft Edge";v="110"'
   headers['sec-ch-ua-mobile'] = '?0'
   headers['sec-ch-ua-platform'] = 'macOS'
-  headers['x-forward-for'] = '1.1.1.1';
+  headers['X-Forward-For'] = '1.1.1.1';
   $done({ headers });
