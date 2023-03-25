@@ -1,0 +1,13 @@
+#!name = bing 
+#!desc =伪装浏览器和ip
+#!openUrl = 
+#!author =canxin
+
+[Rule]
+DOMAIN-KEYWORD, bing.PROXY
+
+[Script]
+http-request ^ https://raw.githubusercontent.com/canxin121/loon/main/bing.js, requires-body = false, tag = bing
+
+[MITM]
+hostname = www.bing.com
