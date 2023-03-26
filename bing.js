@@ -11,5 +11,5 @@
   headers['sec-ch-ua'] = '"Chromium";v="110", "Not A(Brand";v="24", "Microsoft Edge";v="110"'
   headers['sec-ch-ua-mobile'] = '?0'
   headers['sec-ch-ua-platform'] = 'macOS'
-  headers['X-Forward-For'] = '108.162.236.7';
+  headers['X-Forward-For'] = '1.1.1.1';
   $done({ headers });
