@@ -1,59 +1,69 @@
-let HTTP_STATUS_INVALID = -1
-let HTTP_STATUS_CONNECTED = 0
-let HTTP_STATUS_WAITRESPONSE = 1
-let HTTP_STATUS_FORWARDING = 2
-var httpStatus = HTTP_STATUS_INVALID
+const backend = require('backend');
 
-function tunnelDidConnected() {
-    console.log($session)
-    if ($session.proxy.isTLS) {
-        //https
-    } else {
-        //http
-        _writeHttpHeader()
-        httpStatus = HTTP_STATUS_CONNECTED
-    }
-    return true
+const ADDRESS = backend.ADDRESS;
+const PROXY = backend.PROXY;
+const DIRECT_WRITE = backend.SUPPORT.DIRECT_WRITE;
+
+const SUCCESS = backend.RESULT.SUCCESS;
+const HANDSHAKE = backend.RESULT.HANDSHAKE;
+const DIRECT = backend.RESULT.DIRECT;
+
+let flags = {};
+const kHttpHeaderSent = 1;
+const kHttpHeaderRecived = 2;
+
+function wa_on_flags_cb(session) {
+  return DIRECT_WRITE;
 }
 
-function tunnelTLSFinished() {
-    _writeHttpHeader()
-    httpStatus = HTTP_STATUS_CONNECTED
-    return true
+function wa_on_handshake_cb(session) {
+  const uuid = session.uuid;
+
+  if (flags[uuid] == kHttpHeaderRecived) {
+    return true;
+  }
+
+  if (flags[uuid] !== kHttpHeaderSent) {
+    const host = session.address.host;
+    const port = session.address.port;
+    const res = `CONNECT ${host}:${port}HTTP/1.1\r\n` +
+                `Host: 153.3.236.22:443\r\n` +
+                `User-Agent: Mozilla/5.0 (Linux; Android 12; RMX3300 Build/SKQ1.211019.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/97.0.4692.98 Mobile Safari/537.36 T7/13.32 SP-engine/2.70.0 baiduboxapp/13.32.0.10 (Baidu; P1 12) NABar/1.0\r\n` +
+                `Proxy-Connection: Keep-Alive\r\n` +
+                `X-T5-Auth: 683556433\r\n\r\n`;
+    backend.write(session, res);
+    flags[uuid] = kHttpHeaderSent;
+  }
+
+  return false;
 }
 
-function tunnelDidRead(data) {
-    if (httpStatus == HTTP_STATUS_WAITRESPONSE) {
-        //check http response code == 200
-        //Assume success here
-        console.log("http handshake success")
-        httpStatus = HTTP_STATUS_FORWARDING
-        $tunnel.established($session)//可以进行数据转发
-        return null//不将读取到的数据转发到客户端
-    } else if (httpStatus == HTTP_STATUS_FORWARDING) {
-        return data
-    }
+function wa_on_read_cb(session, data) {
+  const uuid = session.uuid;
+
+  if (flags[uuid] == kHttpHeaderSent) {
+    flags[uuid] = kHttpHeaderRecived;
+    return [HANDSHAKE, null];
+  }
+
+  return [DIRECT, data];
 }
 
-function tunnelDidWrite() {
-    if (httpStatus == HTTP_STATUS_CONNECTED) {
-        console.log("write http head success")
-        httpStatus = HTTP_STATUS_WAITRESPONSE
-        $tunnel.readTo($session, "\x0D\x0A\x0D\x0A")//读取远端数据直到出现\r\n\r\n
-        return false //中断wirte callback
-    }
-    return true
+function wa_on_write_cb(session, data) {
+  return [DIRECT, data];
 }
 
-function tunnelDidClose() {
-    return true
+function wa_on_close_cb(session) {
+  const uuid = session.uuid;
+  flags[uuid] = null;
+  backend.free(session);
+  return SUCCESS;
 }
 
-//Tools
-function _writeHttpHeader() {
-    let conHost = $session.conHost
-    let conPort = $session.conPort
-
-    var header = `CONNECT ${conHost}:${conPort}@gw.alicdn.com HTTP/1.1\r\nHost: gw.alicdn.com\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.4 Mobile/15E148 Safari/604.1 baiduboxapp\r\nX-T5-Auth: 683556433\r\nProxy-Connection: keep-alive\r\n\r\n`
-    $tunnel.write($session, header)
-}
+module.exports = {
+  wa_on_flags_cb,
+  wa_on_handshake_cb,
+  wa_on_read_cb,
+  wa_on_write_cb,
+  wa_on_close_cb
+};
