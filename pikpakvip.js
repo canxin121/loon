@@ -12,4 +12,4 @@ hostname = %APPEND% user.mypikpak.com
 //获取id
 pikpak _id = type=http-request,pattern=^https:\/\/user\.mypikpak\.com\/v1\/auth\/verification$,requires-body=0,script-path=https://raw.githubusercontent.com/canxin121/loon/main/pikpak.js
 //刷邀请
-pikpak刷邀请 = type=cron,cronexp=35 3 * * *,wake-system=1,timeout=15,script-path=pikpak.js,argument=0 //填邀请码
+pikpak刷邀请 = type=cron,cronexp=35 3 * * *,wake-system=1,timeout=15,script-path=https://raw.githubusercontent.com/canxin121/loon/main/pikpak.js,argument=0 //填邀请码
