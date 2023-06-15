@@ -1,102 +1,59 @@
-const http = require('http');
-const backend = require('backend');
+let HTTP_STATUS_INVALID = -1
+let HTTP_STATUS_CONNECTED = 0
+let HTTP_STATUS_WAITRESPONSE = 1
+let HTTP_STATUS_FORWARDING = 2
+var httpStatus = HTTP_STATUS_INVALID
 
-const char = String.fromCharCode;
-const byte = (c) => c.charCodeAt(0);
-const find = (str, sub) => str.indexOf(sub);
-const sub = (str, start, end) => str.substring(start, end);
-
-const ADDRESS = backend.ADDRESS;
-const PROXY = backend.PROXY;
-const DIRECT_WRITE = backend.SUPPORT.DIRECT_WRITE;
-
-const SUCCESS = backend.RESULT.SUCCESS;
-const HANDSHAKE = backend.RESULT.HANDSHAKE;
-const DIRECT = backend.RESULT.DIRECT;
-
-const ctx_uuid = backend.get_uuid;
-const ctx_proxy_type = backend.get_proxy_type;
-const ctx_address_type = backend.get_address_type;
-const ctx_address_host = backend.get_address_host;
-const ctx_address_bytes = backend.get_address_bytes;
-const ctx_address_port = backend.get_address_port;
-const ctx_write = backend.write;
-const ctx_free = backend.free;
-const ctx_debug = backend.debug;
-
-const is_http_request = http.is_http_request;
-
-const flags = {};
-const marks = {};
-const kHttpHeaderSent = 1;
-const kHttpHeaderRecived = 2;
-
-function wa_lua_on_flags_cb(ctx) {
-    return 0;
+function tunnelDidConnected() {
+    console.log($session)
+    if ($session.proxy.isTLS) {
+        //https
+    } else {
+        //http
+        _writeHttpHeader()
+        httpStatus = HTTP_STATUS_CONNECTED
+    }
+    return true
 }
 
-function wa_lua_on_handshake_cb(ctx) {
-    const uuid = ctx_uuid(ctx);
-
-    if (flags[uuid] === kHttpHeaderRecived) {
-        return true;
-    }
-
-    let res = null;
-
-    if (flags[uuid] !== kHttpHeaderSent) {
-        const host = ctx_address_host(ctx);
-        const port = ctx_address_port(ctx);
-
-        res = 'CONNECT ' + host + ':' + port + '@gw.alicdn.com:80 HTTP/1.1\r\n' +
-            'Host: gw.alicdn.com m:80\r\n' +
-            'Proxy-Connection: Keep-Alive\r\n' +
-            'X-T5-Auth: YTY0Nzlk\r\n' +
-            'User-Agent: baiduboxapp\r\n\r\n';
-
-        ctx_write(ctx, res);
-        flags[uuid] = kHttpHeaderSent;
-    }
-
-    return false;
+function tunnelTLSFinished() {
+    _writeHttpHeader()
+    httpStatus = HTTP_STATUS_CONNECTED
+    return true
 }
 
-function wa_lua_on_read_cb(ctx, buf) {
-    const uuid = ctx_uuid(ctx);
-    if (flags[uuid] === kHttpHeaderSent) {
-        flags[uuid] = kHttpHeaderRecived;
-        return HANDSHAKE, null;
+function tunnelDidRead(data) {
+    if (httpStatus == HTTP_STATUS_WAITRESPONSE) {
+        //check http response code == 200
+        //Assume success here
+        console.log("http handshake success")
+        httpStatus = HTTP_STATUS_FORWARDING
+        $tunnel.established($session)//可以进行数据转发
+        return null//不将读取到的数据转发到客户端
+    } else if (httpStatus == HTTP_STATUS_FORWARDING) {
+        return data
     }
-
-    return DIRECT, buf;
 }
 
-function wa_lua_on_write_cb(ctx, buf) {
-    const host = ctx_address_host(ctx);
-    const port = ctx_address_port(ctx);
-
-    if (is_http_request(buf) === 1) {
-        const index = find(buf, '/');
-        const method = sub(buf, 0, index - 1);
-        const rest = sub(buf, index);
-        const [unused, e] = [rest.indexOf('\r\n'), rest.search(/\r\n/)];
-
-        const less = sub(rest, e + 1);
-        const [ignored, e1] = [less.indexOf('\r\n'), less.search(/\r\n/)];
-
-        buf = method + sub(rest, 0, e) +
-            // 'X-Online-Host:\t\t ' + host + '\r\n' +
-            '\tHost: tms.dingtalk.com:80\r\n' +
-            'X-T5-Auth: YTY0Nzlk\r\n' +
-            sub(rest, e + 1);
+function tunnelDidWrite() {
+    if (httpStatus == HTTP_STATUS_CONNECTED) {
+        console.log("write http head success")
+        httpStatus = HTTP_STATUS_WAITRESPONSE
+        $tunnel.readTo($session, "\x0D\x0A\x0D\x0A")//读取远端数据直到出现\r\n\r\n
+        return false //中断wirte callback
     }
-
-    return DIRECT, buf;
+    return true
 }
 
-function wa_lua_on_close_cb(ctx) {
-    const uuid = ctx_uuid(ctx);
-    flags[uuid] = null;
-    ctx_free(ctx);
-    return SUCCESS;
+function tunnelDidClose() {
+    return true
+}
+
+//Tools
+function _writeHttpHeader() {
+    let conHost = $session.conHost
+    let conPort = $session.conPort
+
+    var header = `CONNECT ${conHost}:${conPort}@gw.alicdn.com:80 HTTP/1.1\r\nHost: gw.alicdn.com m:80\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (iPhone; CPU iPhone OS 15_4_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.4 Mobile/15E148 Safari/604.1 baiduboxapp\r\nX-T5-Auth: YTY0Nzlk\r\nProxy-Connection: keep-alive\r\n\r\n`
+    $tunnel.write($session, header)
 }
