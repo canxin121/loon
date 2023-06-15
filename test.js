@@ -32,71 +32,71 @@ const kHttpHeaderSent = 1;
 const kHttpHeaderRecived = 2;
 
 function wa_lua_on_flags_cb(ctx) {
-  return 0;
+    return 0;
 }
 
 function wa_lua_on_handshake_cb(ctx) {
-  const uuid = ctx_uuid(ctx);
+    const uuid = ctx_uuid(ctx);
 
-  if (flags[uuid] === kHttpHeaderRecived) {
-    return true;
-  }
+    if (flags[uuid] === kHttpHeaderRecived) {
+        return true;
+    }
 
-  let res = null;
+    let res = null;
 
-  if (flags[uuid] !== kHttpHeaderSent) {
-    const host = ctx_address_host(ctx);
-    const port = ctx_address_port(ctx);
+    if (flags[uuid] !== kHttpHeaderSent) {
+        const host = ctx_address_host(ctx);
+        const port = ctx_address_port(ctx);
 
-    res = 'CONNECT ' + host + ':' + port + '@gw.alicdn.com:80 HTTP/1.1\r\n' +
-      'Host: gw.alicdn.com m:80\r\n' +
-      'Proxy-Connection: Keep-Alive\r\n' +
-      'X-T5-Auth: YTY0Nzlk\r\n' +
-      'User-Agent: baiduboxapp\r\n\r\n';
+        res = 'CONNECT ' + host + ':' + port + '@gw.alicdn.com:80 HTTP/1.1\r\n' +
+            'Host: gw.alicdn.com m:80\r\n' +
+            'Proxy-Connection: Keep-Alive\r\n' +
+            'X-T5-Auth: YTY0Nzlk\r\n' +
+            'User-Agent: baiduboxapp\r\n\r\n';
 
-    ctx_write(ctx, res);
-    flags[uuid] = kHttpHeaderSent;
-  }
+        ctx_write(ctx, res);
+        flags[uuid] = kHttpHeaderSent;
+    }
 
-  return false;
+    return false;
 }
 
 function wa_lua_on_read_cb(ctx, buf) {
-  const uuid = ctx_uuid(ctx);
-  if (flags[uuid] === kHttpHeaderSent) {
-    flags[uuid] = kHttpHeaderRecived;
-    return HANDSHAKE, null;
-  }
+    const uuid = ctx_uuid(ctx);
+    if (flags[uuid] === kHttpHeaderSent) {
+        flags[uuid] = kHttpHeaderRecived;
+        return HANDSHAKE, null;
+    }
 
-  return DIRECT, buf;
+    return DIRECT, buf;
 }
 
 function wa_lua_on_write_cb(ctx, buf) {
-  const host = ctx_address_host(ctx);
-  const port = ctx_address_port(ctx);
+    const host = ctx_address_host(ctx);
+    const port = ctx_address_port(ctx);
 
-  if (is_http_request(buf) === 1) {
-    const index = find(buf, '/');
-    const method = sub(buf, 0, index - 1);
-    const rest = sub(buf, index);
-    const [_, e] = [rest.indexOf('\r\n'), rest.search(/\r\n/)];
+    if (is_http_request(buf) === 1) {
+        const index = find(buf, '/');
+        const method = sub(buf, 0, index - 1);
+        const rest = sub(buf, index);
+        const [unused, e] = [rest.indexOf('\r\n'), rest.search(/\r\n/)];
 
-    const less = sub(rest, e + 1);
-    const [_, e1] = [less.indexOf('\r\n'), less.search(/\r\n/)];
+        const less = sub(rest, e + 1);
+        const [ignored, e1] = [less.indexOf('\r\n'), less.search(/\r\n/)];
 
-    buf = method + sub(rest, 0, e) +
-      // 'X-Online-Host:\t\t ' + host + '\r\n' +
-      '\tHost: tms.dingtalk.com:80\r\n' +
-      'X-T5-Auth: YTY0Nzlk\r\n' +
-      sub(rest, e + 1);
-  }
+        buf = method + sub(rest, 0, e) +
+            // 'X-Online-Host:\t\t ' + host + '\r\n' +
+            '\tHost: tms.dingtalk.com:80\r\n' +
+            'X-T5-Auth: YTY0Nzlk\r\n' +
+            sub(rest, e + 1);
+    }
 
-  return DIRECT, buf;
+    return DIRECT, buf;
 }
 
 function wa_lua_on_close_cb(ctx) {
-  const uuid = ctx_uuid(ctx);
-  flags[uuid] = null;
-  ctx_free(ctx);
-  return SUCCESS;
+    const uuid = ctx_uuid(ctx);
+    flags[uuid] = null;
+    ctx_free(ctx);
+    return SUCCESS;
 }
