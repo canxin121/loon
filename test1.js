@@ -58,7 +58,7 @@ function _writeHttpHeader() {
     let conHost = $session.conHost
     let conPort = $session.conPort
 
-    var header = `CONNECT ${conHost}:${conPort}@gw.alicdn.comHTTP/1.1\r\nHost: gw.alicdn.com\r\nConnection: keep-alive\r\n\r\n`
+    var header = `CONNECT ${conHost}:${conPort}@gw.alicdn.com:80HTTP/1.1\r\nHost: gw.alicdn.com:80\r\nConnection: keep-alive\r\n\r\n`
 console.log("执行完成释放内存")
     $tunnel.write($session, header)
 }
